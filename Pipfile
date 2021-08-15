@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+croniter = "*"
+lxml = "*"
+graphviz = "*"
+pkommand = {ref = "46e886b9a17998d64b9e164ec55fbdf90e6a86d9", git = "https://github.com/berquerant/pkommand.git"}
+
+[dev-packages]
+pytest = "*"
+flake8 = "*"
+black = "==v20.8b1"
+tox = "*"
+mypy = "*"
+isort = "*"
+pydocstyle = "*"
+pytest-freezegun = "*"
+pytest-cov = "*"
+types-croniter = "*"
+
+[requires]
+python_version = "3.8"

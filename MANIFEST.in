@@ -1,0 +1,10 @@
+include *.md
+include tox.ini
+include .envrc
+include Pipfile
+include Pipfile.lock
+include Makefile
+include requirements.txt
+include entry_points.cfg
+
+recursive-include tests *.py
