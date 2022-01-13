@@ -15,3 +15,4 @@ Small utilities for myself.
 - `xpath` selects html elements using xpath.
 - `htmldump` dumps html elements in a row oriented form.
 - `dot` generates a graph image.
+- `setgrep` grep by given string set.

@@ -2,11 +2,58 @@
 
 import sys
 from argparse import ArgumentParser, Namespace
-from typing import Optional
+from typing import Iterator, Optional
 
 import pkommand
 
-from pytools import common, cronseq, dot, expand_nw, htmldump, ip2bin, reversex, xpath
+from pytools import (
+    common,
+    cronseq,
+    dot,
+    expand_nw,
+    htmldump,
+    ip2bin,
+    reversex,
+    setgrep,
+    xpath,
+)
+
+
+class SetGrepCommand(pkommand.Command):  # noqa: D101
+    @staticmethod
+    def name() -> str:  # noqa: D102
+        return "setgrep"
+
+    @classmethod
+    def help(cls) -> str:  # noqa: D102
+        return r"""Grep by set.
+
+e.g.
+$ (echo fire; echo water; echo ground) > set.txt
+$ pytools setgrep set.txt <<EOS
+underwater
+tree
+fire
+sky
+EOS
+underwater
+fire"""
+
+    @classmethod
+    def register(cls, parser: ArgumentParser):  # noqa: D102
+        parser.add_argument(
+            "seeds", metavar="SEED", type=str, nargs="+", help="seed files"
+        )
+
+    def run(self, args: Namespace):  # noqa: D102
+        def chain_source() -> Iterator[str]:
+            for name in args.seeds:
+                with open(name, "r") as f:
+                    yield from f
+
+        runner = setgrep.Arguments(target=chain_source(), source=sys.stdin).runner()
+        for line in runner.run():
+            print(line, end="")
 
 
 class CronSeqCommand(pkommand.Command):  # noqa: D101
@@ -382,6 +429,7 @@ def main():
         XPathCommand,
         HTMLDumpCommand,
         DotCommand,
+        SetGrepCommand,
     ]
     for command in commands:
         parser.add_command_class(command)
