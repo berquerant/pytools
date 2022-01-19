@@ -13,10 +13,80 @@ from pytools import (
     expand_nw,
     htmldump,
     ip2bin,
+    mapdiff,
     reversex,
     setgrep,
     xpath,
 )
+
+
+class MapDiffCommand(pkommand.Command):  # noqa: D101
+    @staticmethod
+    def name() -> str:  # noqa: D102
+        return "mapdiff"
+
+    @classmethod
+    def help(cls) -> str:  # noqa: D102
+        return r"""Diff by key.
+e.g.
+$ cat > left.txt <<EOS
+k1 apple
+k2 banana
+k3 citrus
+k4 dragon fruit
+EOS
+cat > right.txt <<EOS
+k2 banana
+k1 aoi
+k5 citrus
+EOS
+$ pytools mapdiff left.txt right.txt
+> k5 citrus
+< k4 dragon fruit
+< k3 citrus
+<>< k1 apple
+<>> k1 aoi"""
+
+    @classmethod
+    def register(cls, parser: ArgumentParser):  # noqa: D102
+        parser.add_argument(
+            "targets", metavar="FILE", type=str, nargs=2, help="target files"
+        )
+        parser.add_argument(
+            "-k",
+            "--key",
+            action="store",
+            type=int,
+            default=0,
+            help="key field (zero origin)",
+        )
+        parser.add_argument(
+            "-d",
+            "--delim",
+            action="store",
+            type=str,
+            default=" ",
+            help="field delimiter character",
+        )
+        parser.add_argument(
+            "-w",
+            "--with_no_diff",
+            action="store_true",
+            help="if true, print line even if no diff",
+        )
+
+    def run(self, args: Namespace):  # noqa: D102
+        left_file, right_file = args.targets[0], args.targets[1]
+        with open(left_file) as left, open(right_file) as right:
+            runner = mapdiff.Arguments(
+                left=left,
+                right=right,
+                key=args.key,
+                delimiter=args.delim,
+                with_no_diff=args.with_no_diff,
+            ).runner()
+            for line in runner.run():
+                print(line)
 
 
 class SetGrepCommand(pkommand.Command):  # noqa: D101
@@ -430,6 +500,7 @@ def main():
         HTMLDumpCommand,
         DotCommand,
         SetGrepCommand,
+        MapDiffCommand,
     ]
     for command in commands:
         parser.add_command_class(command)
