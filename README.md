@@ -17,3 +17,4 @@ Small utilities for myself.
 - `dot` generates a graph image.
 - `setgrep` greps by given string set.
 - `mapdiff` compares two files like a map.
+- `csvcut` cuts csv input.

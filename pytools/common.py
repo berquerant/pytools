@@ -1,10 +1,11 @@
 """Common parts."""
 
 
+import csv
 import json
 from io import TextIOBase
 from os import path
-from typing import Any, Iterator, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Protocol, Union
 
 
 class BaseException(Exception):
@@ -60,3 +61,66 @@ def textiter(obj: Union[str, Iterator[str], TextIOBase]) -> Iterator[str]:
         if not line:
             return
         yield line
+
+
+StructWriterRow = Union[List[Any], Dict[str, Any]]
+
+
+class StructWriter(Protocol):
+    """Structured log writer."""
+
+    def write(self, row: StructWriterRow):
+        """Write a row."""
+
+
+class JSONWriter(StructWriter):
+    """JSON log writer."""
+
+    def __init__(self, dest: TextIOBase, headers: Optional[List[str]] = None):
+        """Return a new JSONWriter."""
+        super().__init__()
+        self.dest = dest
+        self.headers = headers
+
+    def __new_row(self, row: StructWriterRow) -> Any:
+        if not self.headers:
+            return row
+        if isinstance(row, dict):
+            return {k: v for k, v in row.items() if k in self.headers}
+        return dict(zip(self.headers, row))
+
+    def write(self, row: StructWriterRow):  # noqa: D102
+        print(json_dumps(self.__new_row(row)), file=self.dest)
+
+
+class CSVWriter(StructWriter):
+    """CSV log writer."""
+
+    def __init__(
+        self, dest: TextIOBase, headers: Optional[List[str]] = None, delimiter=","
+    ):
+        """Return a new CSVWriter."""
+        super().__init__()
+        self.writer = csv.writer(dest, delimiter=delimiter)
+        self.headers = headers
+        self.is_head = True
+
+    def __write_csv(self, row: List[Any]):
+        self.writer.writerow(row)
+
+    def __write_headers(self):
+        if self.headers:
+            self.__write_csv(self.headers)
+
+    def __new_row(self, row: StructWriterRow) -> List[Any]:
+        if isinstance(row, list):
+            return row
+        if not self.headers:
+            return [row[k] for k in sorted(row)]
+        return [row[k] for k in self.headers if k in row]
+
+    def write(self, row: StructWriterRow):  # noqa: D102
+        if self.is_head:
+            self.__write_headers()
+            self.is_head = False
+        self.__write_csv(self.__new_row(row))

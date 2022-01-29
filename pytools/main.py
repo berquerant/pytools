@@ -9,6 +9,7 @@ import pkommand
 from pytools import (
     common,
     cronseq,
+    csvcut,
     dot,
     expand_nw,
     htmldump,
@@ -18,6 +19,68 @@ from pytools import (
     setgrep,
     xpath,
 )
+
+
+class CSVCutCommand(pkommand.Command):  # noqa: D101
+    @staticmethod
+    def name() -> str:  # noqa: D102
+        return "csvcut"
+
+    @classmethod
+    def help(cls) -> str:  # noqa: D102
+        return r"""Cut csv.
+
+e.g.
+$ pytools csvcut -f '1,3-' <<EOS
+1,cmd,cronseq
+2,revx
+3,mapdiff,diff,md
+EOS
+1,cronseq
+2
+3,diff,md
+"""
+
+    @classmethod
+    def register(cls, parser: ArgumentParser):  # noqa: D102
+        parser.add_argument(
+            "-f",
+            "--field",
+            action="store",
+            type=str,
+            required=True,
+            help="target expression. like 1-3,5",
+        )
+        parser.add_argument(
+            "-d",
+            "--delimiter",
+            action="store",
+            default=",",
+            help="delimiter for output.",
+        )
+        parser.add_argument(
+            "-l", "--headers", action="store", help="headers for output. like h1,h2,h3"
+        )
+        parser.add_argument(
+            "-i",
+            "--headers_included",
+            action="store_true",
+            help="if true, use the first row as headers",
+        )
+        parser.add_argument(
+            "-j", "--as_json", action="store_true", help="if true, output as json"
+        )
+
+    def run(self, args: Namespace):  # noqa: D102
+        csvcut.Arguments(
+            target=args.field,
+            source=sys.stdin,
+            destination=sys.stdout,
+            headers_included=args.headers_included,
+            headers=args.headers,
+            delimiter=args.delimiter,
+            as_json=args.as_json,
+        ).runner().run()
 
 
 class MapDiffCommand(pkommand.Command):  # noqa: D101
@@ -501,6 +564,7 @@ def main():
         DotCommand,
         SetGrepCommand,
         MapDiffCommand,
+        CSVCutCommand,
     ]
     for command in commands:
         parser.add_command_class(command)
