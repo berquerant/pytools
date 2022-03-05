@@ -1,5 +1,6 @@
 """Excecutable entry point."""
 
+import json
 import sys
 from argparse import ArgumentParser, Namespace
 from typing import Iterator, Optional
@@ -14,11 +15,101 @@ from pytools import (
     expand_nw,
     htmldump,
     ip2bin,
+    jsondiff,
     mapdiff,
     reversex,
     setgrep,
     xpath,
 )
+
+
+class JSONDiffCommand(pkommand.Command):  # noqa: D101
+    @staticmethod
+    def name() -> str:  # noqa: D102
+        return "jsondiff"
+
+    @classmethod
+    def help(cls) -> str:  # noqa: D102
+        return r"""Diff json.
+
+e.g.
+$ (echo '{"l":{"k":1},"r":{"k":2,"v":3}}';echo '{"l":{"k":2,"v":"3"},"r":{"k":2,"v":3}}') | pytools jsondiff
+{"diff":[{"left":1,"path":".k","reason":"value diff int","right":2},{"left":null,"path":".v","reason":"object elem existence left is none","right":3}],"line":1}
+{"diff":[{"left":"3","path":".v","reason":"type diff str and int","right":3}],"line":2}
+"""  # noqa: E501
+
+    @classmethod
+    def register(cls, parser: ArgumentParser):  # noqa: D102
+        parser.add_argument(
+            "-s", "--shallow", action="store_true", help="shallow equality"
+        )
+        parser.add_argument(
+            "-l", "--left", action="store", type=str, default="l", help="left key"
+        )
+        parser.add_argument(
+            "-r", "--right", action="store", type=str, default="r", help="right key"
+        )
+        parser.add_argument(
+            "-1",
+            "--oneshot",
+            action="store_true",
+            help="read json from stdin only once",
+        )
+        parser.add_argument("files", nargs="*", type=str, help="files, 0 or 2 files")
+
+    def __new_runner(self, args: Namespace, src: str) -> jsondiff.Runner:
+        js = json.loads(src)
+        left = js[args.left]
+        right = js[args.right]
+        return jsondiff.Arguments(
+            left=left, right=right, deep=not args.shallow
+        ).runner()
+
+    def __oneshot(self, args: Namespace):
+        diffs = self.__new_runner(args, sys.stdin.read()).run()
+        if diffs:
+            print(jsondiff.json_dumps([x.asdict() for x in diffs]))
+
+    def __files(self, args: Namespace):
+        if len(args.files) != 2:
+            raise common.ValidationException(
+                f"requires 2 files but given {len(args.files)}"
+            )
+        with open(args.files[0]) as lf, open(args.files[1]) as rf:
+            left = json.load(lf)
+            right = json.load(rf)
+        diffs = (
+            jsondiff.Arguments(left=left, right=right, deep=not args.shallow)
+            .runner()
+            .run()
+        )
+        if diffs:
+            print(jsondiff.json_dumps([x.asdict() for x in diffs]))
+
+    def __lines(self, args: Namespace):
+        for i, line in enumerate(sys.stdin):
+            try:
+                diffs = self.__new_runner(args, line).run()
+                if diffs:
+                    print(
+                        jsondiff.json_dumps(
+                            {
+                                "line": i + 1,
+                                "diff": [x.asdict() for x in diffs],
+                            }
+                        )
+                    )
+            except Exception as e:
+                raise common.ValidationException(f"line {i + 1}") from e
+
+    def run(self, args: Namespace):  # noqa: D102
+        if args.oneshot:
+            self.__oneshot(args)
+            return
+        if args.files:
+            self.__files(args)
+            return
+        self.__lines(args)
 
 
 class CSVCutCommand(pkommand.Command):  # noqa: D101
@@ -565,6 +656,7 @@ def main():
         SetGrepCommand,
         MapDiffCommand,
         CSVCutCommand,
+        JSONDiffCommand,
     ]
     for command in commands:
         parser.add_command_class(command)

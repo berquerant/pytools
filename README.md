@@ -18,3 +18,4 @@ Small utilities for myself.
 - `setgrep` greps by given string set.
 - `mapdiff` compares two files like a map.
 - `csvcut` cuts csv input.
+- `jsondiff` compares jsons.
