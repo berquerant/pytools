@@ -3,9 +3,10 @@
 
 import csv
 import json
+from dataclasses import asdict, is_dataclass
 from io import TextIOBase
 from os import path
-from typing import Any, Dict, Iterator, List, Optional, Protocol, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Protocol, Union
 
 
 class BaseException(Exception):
@@ -31,11 +32,33 @@ def find_extension(filename: str) -> Optional[str]:
     return None
 
 
-def json_dumps(obj: Any, compact=True, sort_keys=False) -> str:
+JSONEncoder = Callable[[Any], Any]
+
+
+def __json_dumps_default(encoder: Optional[JSONEncoder] = None) -> JSONEncoder:
+    def inner(obj: Any) -> Any:
+        if is_dataclass(obj):
+            return asdict(obj)
+        if encoder:
+            return encoder(obj)
+        raise TypeError()
+
+    return inner
+
+
+def json_dumps(
+    obj: Any,
+    compact: bool = True,
+    sort_keys: bool = True,
+    default: Optional[JSONEncoder] = None,
+) -> str:
     """Serialize obj as JSON."""
+    default_encoder = __json_dumps_default(default)
     if compact:
-        return json.dumps(obj, separators=(",", ":"), sort_keys=sort_keys)
-    return json.dumps(obj, sort_keys=sort_keys)
+        return json.dumps(
+            obj, separators=(",", ":"), sort_keys=sort_keys, default=default_encoder
+        )
+    return json.dumps(obj, sort_keys=sort_keys, default=default_encoder)
 
 
 def textiter(obj: Union[str, Iterator[str], TextIOBase]) -> Iterator[str]:

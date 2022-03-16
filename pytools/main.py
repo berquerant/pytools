@@ -69,7 +69,7 @@ $ (echo '{"l":{"k":1},"r":{"k":2,"v":3}}';echo '{"l":{"k":2,"v":"3"},"r":{"k":2,
     def __oneshot(self, args: Namespace):
         diffs = self.__new_runner(args, sys.stdin.read()).run()
         if diffs:
-            print(jsondiff.json_dumps([x.asdict() for x in diffs]))
+            print(jsondiff.json_dumps(diffs))
 
     @staticmethod
     def __files(args: Namespace):
@@ -86,7 +86,7 @@ $ (echo '{"l":{"k":1},"r":{"k":2,"v":3}}';echo '{"l":{"k":2,"v":"3"},"r":{"k":2,
             .run()
         )
         if diffs:
-            print(jsondiff.json_dumps([x.asdict() for x in diffs]))
+            print(jsondiff.json_dumps(diffs))
 
     def __lines(self, args: Namespace):
         for i, line in enumerate(sys.stdin):
@@ -97,7 +97,7 @@ $ (echo '{"l":{"k":1},"r":{"k":2,"v":3}}';echo '{"l":{"k":2,"v":"3"},"r":{"k":2,
                         jsondiff.json_dumps(
                             {
                                 "line": i + 1,
-                                "diff": [x.asdict() for x in diffs],
+                                "diff": diffs,
                             }
                         )
                     )
@@ -475,7 +475,7 @@ cat sample.html | pytools xpath '//p[@id="alpha"]' -r"""
                 if v.is_raw():
                     print(v.raw)
                     continue
-                print(common.json_dumps(v.summary, sort_keys=True))
+                print(common.json_dumps(v.summary))
 
 
 class HTMLDumpCommand(pkommand.Command):  # noqa: D101

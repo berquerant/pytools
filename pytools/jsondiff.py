@@ -1,11 +1,11 @@
 """JSONDiff command."""
 
 
-import json
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Protocol, Tuple, Union, cast
 
 from .common import ValidationException
+from .common import json_dumps as common_json_dumps
 
 
 class PathProto(Protocol):
@@ -122,9 +122,7 @@ def json_dumps_default(obj: Any) -> str:
 
 def json_dumps(obj: Any) -> str:
     """Wrap json.dumps."""
-    return json.dumps(
-        obj, separators=(",", ":"), sort_keys=True, default=json_dumps_default
-    )
+    return common_json_dumps(obj, default=json_dumps_default)
 
 
 @dataclass

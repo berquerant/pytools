@@ -96,7 +96,7 @@ class HTMLJSONDumper(HTMLDumper):
         return attrs
 
     def log(self, x: dict) -> str:  # noqa
-        return json_dumps(x)
+        return json_dumps(x, sort_keys=False)
 
 
 class HTMLTSVDumper(HTMLDumper):
@@ -106,7 +106,7 @@ class HTMLTSVDumper(HTMLDumper):
         return "\\n".join(x.splitlines())
 
     def translate_attrs(self, attrs: list):  # noqa
-        return json_dumps(attrs)
+        return json_dumps(attrs, sort_keys=False)
 
     def log(self, x: dict) -> str:  # noqa
         return "\t".join(str(v) for v in x.values())
