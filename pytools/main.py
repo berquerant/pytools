@@ -57,7 +57,8 @@ $ (echo '{"l":{"k":1},"r":{"k":2,"v":3}}';echo '{"l":{"k":2,"v":"3"},"r":{"k":2,
         )
         parser.add_argument("files", nargs="*", type=str, help="files, 0 or 2 files")
 
-    def __new_runner(self, args: Namespace, src: str) -> jsondiff.Runner:
+    @staticmethod
+    def __new_runner(args: Namespace, src: str) -> jsondiff.Runner:
         js = json.loads(src)
         left = js[args.left]
         right = js[args.right]
@@ -70,7 +71,8 @@ $ (echo '{"l":{"k":1},"r":{"k":2,"v":3}}';echo '{"l":{"k":2,"v":"3"},"r":{"k":2,
         if diffs:
             print(jsondiff.json_dumps([x.asdict() for x in diffs]))
 
-    def __files(self, args: Namespace):
+    @staticmethod
+    def __files(args: Namespace):
         if len(args.files) != 2:
             raise common.ValidationException(
                 f"requires 2 files but given {len(args.files)}"
