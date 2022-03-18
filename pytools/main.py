@@ -16,11 +16,36 @@ from pytools import (
     htmldump,
     ip2bin,
     jsondiff,
+    kvpair,
     mapdiff,
     reversex,
     setgrep,
     xpath,
 )
+
+
+class KVPairCommand(pkommand.Command):  # noqa: D101
+    @staticmethod
+    def name() -> str:  # noqa: D102
+        return "kvpair"
+
+    @classmethod
+    def help(cls) -> str:  # noqa: D102
+        return """Key-Value pair to json.
+
+e.g.
+$ echo 'type=SYSCALL msg=audit(1603703472.072:784): arch=c000003e syscall=2 success=no exit=-13' | py
+tools kvpair
+{"arch":"c000003e","exit":"-13","msg":"audit(1603703472.072:784):","success":"no","syscall":"2","type":"SYSCALL"}"""
+
+    @classmethod
+    def register(cls, _):  # noqa: D102
+        pass
+
+    def run(self, args: Namespace):  # noqa: D102
+        runner = kvpair.Arguments(x.rstrip() for x in sys.stdin).runner()
+        for row in runner.run():
+            print(common.json_dumps({x.key: x.value for x in row}))
 
 
 class JSONDiffCommand(pkommand.Command):  # noqa: D101
@@ -659,6 +684,7 @@ def main():
         MapDiffCommand,
         CSVCutCommand,
         JSONDiffCommand,
+        KVPairCommand,
     ]
     for command in commands:
         parser.add_command_class(command)
