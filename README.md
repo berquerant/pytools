@@ -19,3 +19,4 @@ Small utilities for myself.
 - `mapdiff` compares two files like a map.
 - `csvcut` cuts csv input.
 - `jsondiff` compares jsons.
+- `kvpair` parses key-value pairs.
