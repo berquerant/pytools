@@ -6,5 +6,6 @@ include Pipfile.lock
 include Makefile
 include requirements.txt
 include entry_points.cfg
+include main.py
 
 recursive-include tests *.py

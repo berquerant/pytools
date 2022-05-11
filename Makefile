@@ -6,15 +6,16 @@ check:  # Run lints, format checks.
 
 .PHONY: test
 test:  # Run tests.
-	@pipenv run tox -e py38
+	@pipenv run tox -e py310
 
 .PHONY: fix
 fix:  # Format py sources.
 	@pipenv run black $(BLACK_TARGET)
 	@pipenv run isort $(ISORT_TARGET)
 
-requirements.txt: Pipfile.lock  # Generate requirements.txt
-	@pipenv lock -r > requirements.txt
+.PHONY: requirements
+requirements: Pipfile.lock  # Generate requirements.txt
+	@pipenv requirements > requirements.txt
 
 .PHONY: install-dev
 install-dev: requirements.txt  # Install executable for development.

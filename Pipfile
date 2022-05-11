@@ -7,12 +7,12 @@ name = "pypi"
 croniter = "*"
 lxml = "*"
 graphviz = "*"
-pkommand = {ref = "46e886b9a17998d64b9e164ec55fbdf90e6a86d9", git = "https://github.com/berquerant/pkommand.git"}
+pkommand = {ref = "5111b3e", git = "https://github.com/berquerant/pkommand.git"}
 
 [dev-packages]
 pytest = "*"
 flake8 = "*"
-black = "==v20.8b1"
+black = "*"
 tox = "*"
 mypy = "*"
 isort = "*"
@@ -22,4 +22,4 @@ pytest-cov = "*"
 types-croniter = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3.10"
