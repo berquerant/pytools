@@ -3,7 +3,7 @@
 import json
 import sys
 from argparse import ArgumentParser, Namespace
-from typing import Optional
+from typing import Iterator, Optional
 
 import pkommand
 
@@ -147,6 +147,7 @@ def mdiff(
 ):
     r"""
     Diff by key.
+
     e.g.
     $ cat > left.txt <<EOS
     k1 apple
@@ -193,9 +194,12 @@ def sg(seed: str):
     """
     from pytools.setgrep import Arguments
 
-    with open(seed, "r") as f:
-        src = f.readlines()
-    for line in Arguments(src, sys.stdin).runner().run():
+    def read() -> Iterator[str]:
+        with open(seed, "r") as f:
+            for line in f:
+                yield line.rstrip()
+
+    for line in Arguments(read(), sys.stdin).runner().run():
         print(line, end="")
 
 
@@ -245,7 +249,7 @@ def ip2bin(reverse: bool):
         print(Arguments(line.rstrip(), reverse).runner().run())
 
 
-def revx(separator: Optional[str]):
+def revx(separator: str = ""):
     """
     Reverse string.
 
@@ -270,8 +274,9 @@ def xpath(paths: list[str], raw: bool):
 
     if len(paths) == 0:
         raise common.ValidationException("need at least one path")
+    src = sys.stdin.read()
     for p in paths:
-        for x in Arguments(sys.stdin, p, raw).runner().run():
+        for x in Arguments(src, p, raw).runner().run():
             if raw:
                 print(x.raw)
                 continue
@@ -379,7 +384,9 @@ def dot(output: str, type: str, children: Optional[str]):
             case "json":
                 return JSONDrawer()
             case "jsontree":
-                return JSONTreeDrawer(children.split(","))
+                if children is not None:
+                    return JSONTreeDrawer(children.split(","))
+                raise common.ValidationException("jsontree needs children")
             case "csv":
                 return CSVDrawer()
             case _:
