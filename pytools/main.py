@@ -177,19 +177,45 @@ def mdiff(
             print(line)
 
 
-def sg(seed: str):
+def sg(seed: str, max_matches: int = 0, perfect: bool = False):
     r"""
     Grep by set.
 
     e.g.
     $ (echo fire; echo water; echo ground) > set.txt
-    $ pytools sg set.txt <<EOS
+    $ pytools sg -s set.txt <<EOS
     underwater
     tree
     fire
     sky
     EOS
     underwater
+    fire
+
+    limit max match count:
+
+    $ pytools sg -s set.txt -m 2 <<EOS
+    underwater
+    tree
+    fire
+    sky
+    fire
+    fire
+    fire
+    tree
+    EOS
+    underwater
+    fire
+    fire
+
+    perfect match:
+
+    pytools sg -s set.txt -p <<EOS
+    underwater
+    tree
+    fire
+    sky
+    EOS
     fire
     """
     from pytools.setgrep import Arguments
@@ -199,7 +225,7 @@ def sg(seed: str):
             for line in f:
                 yield line.rstrip()
 
-    for line in Arguments(read(), sys.stdin).runner().run():
+    for line in Arguments(read(), sys.stdin, max_matches, perfect).runner().run():
         print(line, end="")
 
 
