@@ -3,11 +3,104 @@
 import json
 import sys
 from argparse import ArgumentParser, Namespace
-from typing import Iterator, Optional
+from typing import Iterator, Optional, TextIO
 
 import pkommand
 
 from pytools import common, jsondiff
+
+from .log import set_debug
+
+
+def join(
+    files: list[str],
+    target: str = "1.1-,2.1-",
+    key: str = "1.1=2.1",
+    delimiter: str = ",",
+    verbose: bool = False,
+):
+    r"""
+    Join files.
+
+    key is a join condition, like "1.2=2.3", means that join the 2nd column of the source 1 and
+    the 3rd column of the source 2.
+    files[0] is the source 1, files[1] is the source 2.
+
+    target is an output format, like "1.1,2.1-", means that the 1st column of the source 1 and
+    the all columns of the source 2.
+    Default target is the all columns.
+    The syntax is:
+      natural := natural number
+      location := natural "." natural  // source . column
+      single := location
+      left := location "-"  // left limited
+      right := "-" location  // right limited
+      interval := location "-" location  // left and right limited
+      range := interval | right | left | single
+      target := range {"," range}
+
+    e.g.
+    $ cat > account.csv <<EOS
+    1,account1,HR
+    2,account2,Dev
+    4,account4,HR
+    3,account3,PR
+    EOS
+    $ cat > department.csv <<EOS
+    10,HR,Human Resources
+    12,PR,Public Relations
+    11,Dev,Development
+    EOS
+    $ pytools join -f account.csv department.csv -d "," -k "1.3=2.2" -t "1.1-,2.1-"
+    1,account1,HR,10,HR,Human Resources
+    2,account2,Dev,11,Dev,Development
+    4,account4,HR,10,HR,Human Resources
+    3,account3,PR,12,PR,Public Relations
+    $ pytools join -f account.csv department.csv -d "," -k "1.3=2.2" -t "\-1.2,2.3"
+    1,account1,Human Resources
+    2,account2,Development
+    4,account4,Human Resources
+    3,account3,Public Relations
+    $ pytools join -f department.csv -d "," -k "1.3=2.2" -t "2.1,1.1,2.3" < account.csv
+    10,1,Human Resources
+    11,2,Development
+    10,4,Human Resources
+    12,3,Public Relations
+
+    Read stdin when len(files) is 1, stdin is the source 1, the specified file is the source 2.
+
+    $ cat > department_ext.csv <<EOS
+    Development,2
+    Human Resources,2b
+    Public Relations,3a
+    Marketing,1b
+    Accounting,1a
+    EOS
+    $ pytools join -f department.csv -d "," -k "1.3=2.2" -t "2.1,1.1,2.3" < account.csv |\
+        pytools join -f department_ext.csv -d "," -k "1.3=2.1" -t "1.1-,2.2"
+    10,1,Human Resources,2b
+    11,2,Development,2
+    10,4,Human Resources,2b
+    12,3,Public Relations,3a
+    """
+    set_debug(verbose)
+    from pytools.join import Arguments
+
+    def run(f: TextIO, g: TextIO):
+        for row in (
+            Arguments([f, g], delimiter, key, target.replace("\\", "")).runner().run()
+        ):
+            print(row)
+
+    match len(files):
+        case 1:
+            with open(files[0]) as g:
+                run(sys.stdin, g)
+        case 2:
+            with open(files[0]) as f, open(files[1]) as g:
+                run(f, g)
+        case _:
+            raise common.ValidationException("Require 1 or 2 files")
 
 
 def kvpair():
@@ -155,12 +248,12 @@ def mdiff(
     k3 citrus
     k4 dragon fruit
     EOS
-    cat > right.txt <<EOS
+    $ cat > right.txt <<EOS
     k2 banana
     k1 aoi
     k5 citrus
     EOS
-    $ pytools mdiff left.txt right.txt
+    $ pytools mdiff -t left.txt right.txt
     > k5 citrus
     < k4 dragon fruit
     < k3 citrus
@@ -210,7 +303,7 @@ def sg(seed: str, max_matches: int = 0, perfect: bool = False):
 
     perfect match:
 
-    pytools sg -s set.txt -p <<EOS
+    $ pytools sg -s set.txt -p <<EOS
     underwater
     tree
     fire
@@ -234,8 +327,8 @@ def cronseq(expr: str, start: Optional[str], to: Optional[str], count: Optional[
     Expand cron expression.
 
     e.g.
-    pytools cronseq -e '*/5 * * * *' -c 5
-    pytools cronseq -e '*/19 * * * *' -s '2021-10-01 00:00:00' -t '2021-10-01 01:00:00'
+    $ pytools cronseq -e '*/5 * * * *' -c 5
+    $ pytools cronseq -e '*/19 * * * *' -s '2021-10-01 00:00:00' -t '2021-10-01 01:00:00'
 
     note:
     The datetime format depends on environment variable DATETIME_FORMAT.
@@ -252,7 +345,7 @@ def exnw():
     Expand CIDR.
 
     e.g.
-    echo '192.168.0.0/30' | pytools exnw
+    $ echo '192.168.0.0/30' | pytools exnw
     """
     from pytools.expand_nw import Arguments
 
@@ -266,8 +359,8 @@ def ip2bin(reverse: bool):
     Convert decimal ip into binary ip and vice versa.
 
     e.g.
-    echo '192.168.0.1' | pytools ip2bin
-    echo '11000000.10101000.00000000.00000001' | pytools ip2bin -r
+    $ echo '192.168.0.1' | pytools ip2bin
+    $ echo '11000000.10101000.00000000.00000001' | pytools ip2bin -r
     """
     from pytools.ip2bin import Arguments
 
@@ -280,8 +373,8 @@ def revx(separator: str = ""):
     Reverse string.
 
     e.g.
-    echo 'live' | pytools revx
-    echo 'java.lang.Object' | pytools revx -s '.'
+    $ echo 'live' | pytools revx
+    $ echo 'java.lang.Object' | pytools revx -s '.'
     """
     from pytools.reversex import Arguments
 
@@ -294,7 +387,7 @@ def xpath(paths: list[str], raw: bool):
     Select elements by xpath.
 
     e.g.
-    cat sample.html | pytools xpath -p '//p[@id="alpha"]' --raw
+    $ cat sample.html | pytools xpath -p '//p[@id="alpha"]' --raw
     """
     from pytools.xpath import Arguments
 
@@ -314,8 +407,8 @@ def htmldump(json: bool):
     Dump html elements.
 
     e.g.
-    pytools htmldump sample.html
-    cat sample.html | pytools htmldump --json
+    $ pytools htmldump sample.html
+    $ cat sample.html | pytools htmldump --json
     """
     from pytools.htmldump import Arguments
 
@@ -353,7 +446,7 @@ def dot(output: str, type: str, children: Optional[str]):
     }
 
     e.g.
-    pytools dot -t json -o tmp.png << EOS
+    $ pytools dot -t json -o tmp.png << EOS
     {"id":"A","to":[{"id":"B","el":"ab"}],"comment":"Alpha"}
     {"id":"B","to":[{"id":"C","el":"bc"}]}
     {"id":"C","to":[{"id":"A","el":"ca"},{"id":"C","el":"cc"}]}
@@ -384,7 +477,7 @@ def dot(output: str, type: str, children: Optional[str]):
     their labels are their keys, the object under other info1 has an edge from the parent with "other info1" label.
 
     e.g.
-    pytools dot -t jsontree -o tmp.png -c l,r << EOS
+    $ pytools dot -t jsontree -o tmp.png -c l,r << EOS
     {"n":"N1","l":{"n":"N2"},"r":{"n":"N3","l":{"n":"N4"}}}
     EOS
 
@@ -397,7 +490,7 @@ def dot(output: str, type: str, children: Optional[str]):
     and edges from parent node to child node1, child node2, and so on.
 
     e.g.
-    pytools dot -t csv -o tmp.png << EOS
+    $ pytools dot -t csv -o tmp.png << EOS
     A,B
     B,C
     C,A,C
@@ -443,6 +536,7 @@ def main():
         xpath,
         htmldump,
         kvpair,
+        join,
     ]
     wrapper = pkommand.Wrapper(parser)
     for function in functions:

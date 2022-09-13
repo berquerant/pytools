@@ -1,6 +1,6 @@
 # pytools
 
-Small utilities for myself.
+Small utilities.
 
 ## Usage
 
@@ -20,3 +20,4 @@ Small utilities for myself.
 - `csvcut` cuts csv input.
 - `jsondiff` compares jsons.
 - `kvpair` parses key-value pairs.
+- `join` combines rows.
