@@ -2,9 +2,12 @@
 
 import csv
 import json
+import sys
+from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from io import TextIOBase
 from os import path
+from tempfile import TemporaryFile
 from typing import Any, Callable, Dict, Iterator, List, Optional, Protocol, Union
 
 
@@ -146,3 +149,14 @@ class CSVWriter(StructWriter):
             self.__write_headers()
             self.is_head = False
         self.__write_csv(self.__new_row(row))
+
+
+@contextmanager
+def stdin_to_tempfile():
+    """Read stdin and write it to a temporary file."""
+    f = TemporaryFile(mode="r+")
+    f.write(sys.stdin.read())
+    try:
+        yield f
+    finally:
+        f.close()

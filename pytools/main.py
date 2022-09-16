@@ -3,7 +3,7 @@
 import json
 import sys
 from argparse import ArgumentParser, Namespace
-from typing import Iterator, Optional, TextIO
+from typing import Callable, Iterator, Optional, Sequence, TextIO
 
 import pkommand
 
@@ -14,8 +14,8 @@ from .log import set_debug
 
 def join(
     files: list[str],
-    target: str = "1.1-,2.1-",
-    key: str = "1.1=2.1",
+    target: Optional[str] = None,
+    key: Optional[str] = None,
     delimiter: str = ",",
     verbose: bool = False,
 ):
@@ -25,6 +25,7 @@ def join(
     key is a join condition, like "1.2=2.3", means that join the 2nd column of the source 1 and
     the 3rd column of the source 2.
     files[0] is the source 1, files[1] is the source 2.
+    Default key joins by first columns, e.g. "1.1=2.1"
 
     target is an output format, like "1.1,2.1-", means that the 1st column of the source 1 and
     the all columns of the source 2.
@@ -66,6 +67,11 @@ def join(
     11,2,Development
     10,4,Human Resources
     12,3,Public Relations
+    $ pytools join -f account.csv department.csv department_ext.csv -k "1.3=2.2,2.3=3.1"
+    1,account1,HR,10,HR,Human Resources,Human Resources,2b
+    4,account4,HR,10,HR,Human Resources,Human Resources,2b
+    2,account2,Dev,11,Dev,Development,Development,2
+    3,account3,PR,12,PR,Public Relations,Public Relations,3a
 
     Read stdin when len(files) is 1, stdin is the source 1, the specified file is the source 2.
 
@@ -86,21 +92,40 @@ def join(
     set_debug(verbose)
     from pytools.join import Arguments
 
-    def run(f: TextIO, g: TextIO):
+    def with_files(f: Callable[[Sequence[TextIO]], None]):
+        match len(files):
+            case 0:
+                raise common.ValidationException("Not enough sources")
+            case 1:
+                with common.stdin_to_tempfile() as s, open(files[0]) as g:
+                    f([s, g])
+            case _:
+                fs = [open(x) for x in files]
+                try:
+                    f(fs)
+                finally:
+                    for x in fs:
+                        x.close()
+
+    def get_target() -> str:
+        if not target:
+            return ",".join(f"{i + 1}.1-" for i in range(len(files)))
+        return target
+
+    def get_key() -> str:
+        if not key:
+            return ",".join(f"{i + 1}.1={i + 2}.1" for i in range(len(files) - 1))
+        return key
+
+    def run(fs: Sequence[TextIO]):
         for row in (
-            Arguments([f, g], delimiter, key, target.replace("\\", "")).runner().run()
+            Arguments(fs, delimiter, get_key(), get_target().replace("\\", ""))
+            .runner()
+            .run()
         ):
             print(row)
 
-    match len(files):
-        case 1:
-            with open(files[0]) as g:
-                run(sys.stdin, g)
-        case 2:
-            with open(files[0]) as f, open(files[1]) as g:
-                run(f, g)
-        case _:
-            raise common.ValidationException("Require 1 or 2 files")
+    with_files(run)
 
 
 def kvpair():

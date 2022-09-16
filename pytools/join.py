@@ -4,7 +4,17 @@ import sys
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, Optional, TextIO, Tuple, Union, cast
+from typing import (
+    Any,
+    Callable,
+    Iterator,
+    Optional,
+    Sequence,
+    TextIO,
+    Tuple,
+    Union,
+    cast,
+)
 
 import pyparsing as pp
 
@@ -12,7 +22,7 @@ from .common import ValidationException, json_dumps
 from .log import debug, with_debug
 
 
-@dataclass
+@dataclass(frozen=True)  # hashable
 class Location:
     """Source number and column number."""
 
@@ -89,7 +99,8 @@ class Interval(Range):
 
 
 Target = list[Range]
-JoinKey = Interval
+JoinKeyRelation = Interval
+JoinKey = list[JoinKeyRelation]
 
 
 class Parser:
@@ -112,12 +123,12 @@ class Parser:
             raise ValidationException(f"Invalid location: {data}") from e
 
     @staticmethod
-    def __to_strlist(x: Any) -> list[str]:
+    def __cast_to_strlist(x: Any) -> list[str]:
         return cast(list[str], x)
 
     @classmethod
     def __to_interval(cls, xs: list[Union[list[str], str]]) -> Interval:
-        slist = cls.__to_strlist
+        slist = cls.__cast_to_strlist
         to_location = cls.__to_location
 
         try:
@@ -132,21 +143,21 @@ class Parser:
 
     @classmethod
     def __to_range(cls, xs: list[Union[list[str], str]]) -> Range:
-        slist = cls.__to_strlist
+        slist = cls.__cast_to_strlist
         to_location = cls.__to_location
 
         try:
             match len(xs):
                 case 1:
                     return Single(to_location(slist(xs[0])))
-                case 3:
-                    return cls.__to_interval(xs)
                 case 2:
                     if xs[0] == "-":
                         return Right(to_location(slist(xs[1])))
                     if xs[1] == "-":
                         return Left(to_location(slist(xs[0])))
                     raise Exception("Invalid left or right")
+                case 3:
+                    return cls.__to_interval(xs)
                 case _:
                     raise Exception("Unknown range")
         except Exception as e:
@@ -191,18 +202,22 @@ class Parser:
 
         natural := natural number
         location := natural "." natural  // source . column
-        interval := location "-" location
+        relation := location "=" location
+        joinkey := relation {"," relation}
         """
         natural = pp.common.integer
         location = pp.Group(natural + "." + natural)
-        relation = location + "=" + location
+        relation = pp.Group(location + "=" + location)
+        joinkey = pp.delimited_list(relation)
 
         try:
-            r = cls.__to_interval(
-                relation.parse_string(value, parse_all=True).as_list()
-            )
-            if r.left.src == r.right.src:
-                raise Exception("JoinKey has the same src")
+            r = [
+                cls.__to_interval(x)
+                for x in joinkey.parse_string(value, parse_all=True).as_list()
+            ]
+            for x in r:
+                if x.left.src == x.right.src:
+                    raise Exception("Some join key relations have the same src")
             return r
         except Exception as e:
             raise ValidationException(f"Parse joinkey error: {value}") from e
@@ -222,55 +237,354 @@ class IndexItem:
 IndexItemList = list[IndexItem]
 
 
+@dataclass
+class ScannedIndexItem:
+    """Data read from `Index`."""
+
+    line: str
+    index: IndexItem
+
+
 class Index:
     """In-memory word-to-lines index."""
 
-    def __init__(self, src: TextIO):
+    def __init__(self, src: TextIO, key: IndexKey):
         """
-        Return new `Index`.
+        Return a new `Index`.
 
         :src: seekable
+        :key: function to generate key
         """
         self.__index: dict[str, IndexItemList] = defaultdict(list)
         self.__src = src
+        self.__key = key
+
+    @property
+    def key(self) -> IndexKey:
+        """Return the function to generate key."""
+        return self.__key
 
     def add(self, item: IndexItem):
-        """Add new item."""
+        """Add a new item."""
         self.__index[item.key].append(item)
 
-    def get(self, key: str) -> Optional[list[str]]:
-        """Find lines with key."""
+    def read(self, item: IndexItem) -> ScannedIndexItem:
+        """Read a line at the item."""
+        self.__src.seek(item.offset, 0)
+        return ScannedIndexItem(
+            line=self.__src.readline().rstrip(),
+            index=item,
+        )
+
+    def get(self, key: str) -> Optional[list[IndexItem]]:
+        """Find items with key."""
         items = self.__index.get(key)
         if not items:
+            if items is not None:
+                del self.__index[key]
             return None
+        return items
 
-        def seek(offset: int) -> str:
-            self.__src.seek(offset, 0)
-            return self.__src.readline().rstrip()
+    def delete(self, item: IndexItem):
+        """Delete an item."""
+        items = self.__index.get(item.key)
+        if not items:
+            if items is not None:
+                del self.__index[item.key]
+            return
+        try:
+            items.remove(item)
+        except ValueError:
+            pass
 
-        return [seek(x.offset) for x in items]
+    def items(self) -> Iterator[IndexItem]:
+        """Yield all index items."""
+        for items in self.__index.values():
+            yield from items
+
+    def scan(self) -> Iterator[ScannedIndexItem]:
+        """Yield all lines."""
+        for items in self.__index.values():
+            for item in items:
+                self.__src.seek(item.offset, 0)
+                yield ScannedIndexItem(
+                    line=self.__src.readline().rstrip(),
+                    index=item,
+                )
 
     @staticmethod
     def new(src: TextIO, key: IndexKey) -> "Index":
         """
-        Return new `Index`.
+        Return a new `Index`.
 
         :src: seekable
+        :key: function to generate key
         """
         if not src.seekable():
             raise ValidationException("Index requires seekable source")
-        index = Index(src)
+        src.seek(0, 0)
+        index = Index(src, key)
         while True:
             offset = src.tell()
             line = src.readline()
             if line == "":
                 return index
+            line = line.rstrip()
+            k = key(line)
+            debug("New IndexItem: key %s line %s offset %d", k, line, offset)
             index.add(
                 IndexItem(
-                    key=key(line.rstrip()),
+                    key=k,
                     offset=offset,
                 )
             )
+
+
+class IndexCache:
+    """Cache of `Index`."""
+
+    def __init__(self, srcs: Sequence[TextIO]):
+        """
+        Return a new `IndexCache`.
+
+        :srcs: seekable data sources
+        """
+        self.__cache: dict[Location, Index] = {}
+        self.__srcs = srcs
+
+    @staticmethod
+    def __index_key(col: int, delimiter: str) -> IndexKey:
+        def key(line: str) -> str:
+            try:
+                return line.split(delimiter)[col]
+            except Exception as e:
+                raise Exception(f"New key from {line}, col {col}") from e
+
+        return key
+
+    def get(self, loc: Location, delimiter: str) -> Index:
+        """
+        Get `Index`.
+
+        Construct `Index` if not cached.
+        :loc: index location
+        :delimiter: column delimiter
+        """
+        if loc not in self.__cache:
+            debug("New missing Index: loc %s delimiter %s", loc, delimiter)
+            if not 0 <= loc.src < len(self.__srcs):
+                raise Exception(f"Out of range: {loc}")
+            self.__cache[loc] = Index.new(
+                self.__srcs[loc.src], self.__index_key(loc.col, delimiter)
+            )
+        return self.__cache[loc]
+
+
+@dataclass
+class JoinItem:
+    """Selected line of a source."""
+
+    src: int  # zero-based
+    index: IndexItem
+
+
+class JoinItemList:
+    """Selected parts of sources."""
+
+    def __init__(self, items: Optional[list[JoinItem]] = None):
+        """Rerturn a new `JoinItemList`."""
+        self.__items: dict[int, JoinItem] = (
+            {} if items is None else {x.src: x for x in items}
+        )
+
+    def get(self, src: int) -> Optional[JoinItem]:
+        """Return an item of the `src`-th source."""
+        return self.__items.get(src)
+
+    def set(self, item: JoinItem):
+        """Register an item."""
+        self.__items[item.src] = item
+
+    def items(self) -> Iterator[JoinItem]:
+        """Yield all items in src asc order."""
+        for src in sorted(self.__items):
+            yield self.__items[src]
+
+    def keys(self) -> Iterator[int]:
+        """Yield all src numbers in asc order."""
+        yield from sorted(self.__items)
+
+    def copy(self) -> "JoinItemList":
+        """Return a shallow copy of this."""
+        return JoinItemList(list(self.__items.values()))
+
+    def __str__(self) -> str:
+        """Return a string expression."""
+        return str(list(self.items()))
+
+
+JoinResult = list[JoinItemList]
+
+
+class RelationJoiner:
+    """Resolve `JoinKeyRelation`."""
+
+    def __init__(self, cache: IndexCache, delimiter: str):
+        """
+        Return a new `RelationJoiner`.
+
+        :cache: index cache
+        :delimiter: column delimiter
+        """
+        self.__cache = cache
+        self.__delimiter = delimiter
+
+    def __get_index(self, loc: Location) -> Index:
+        try:
+            return self.__cache.get(loc, self.__delimiter)
+        except Exception as e:
+            raise Exception(f"Missing index: {loc}") from e
+
+    def __full_join(self, rel: JoinKeyRelation) -> Iterator[JoinItemList]:
+        lkey, rkey = rel.left.add(-1, -1), rel.right.add(-1, -1)
+        lindex, rindex = self.__get_index(lkey), self.__get_index(rkey)
+
+        # cross join for all lines
+        for litem in lindex.items():
+            ritems = rindex.get(litem.key)
+            if not ritems:
+                continue
+
+            r = JoinItemList()
+            r.set(JoinItem(src=lkey.src, index=litem))
+            for ritem in ritems:
+                p = r.copy()
+                p.set(JoinItem(src=rkey.src, index=ritem))
+                debug(
+                    "Full join: lkey %s rkey %s litem %s ritem %s",
+                    lkey,
+                    rkey,
+                    litem,
+                    ritem,
+                )
+                yield p
+
+    def join(
+        self, rel: JoinKeyRelation, rows: Optional[Iterator[JoinItemList]] = None
+    ) -> Iterator[JoinItemList]:
+        """
+        Join the rows and the source with the relation.
+
+        If no rows, join for all lines.
+        """
+        if rows is None:
+            yield from self.__full_join(rel)
+            return
+
+        lkey, rkey = rel.left.add(-1, -1), rel.right.add(-1, -1)
+        lindex, rindex = self.__get_index(lkey), self.__get_index(rkey)
+
+        def as_item(x: Any) -> JoinItem:
+            return cast(JoinItem, x)
+
+        is_initial = True
+        row_srcs: Optional[list[int]] = None
+        for row in rows:
+            debug("Join check: lkey %s rkey %s row %s", lkey, rkey, row)
+            if is_initial:
+                row_srcs = list(row.keys())
+            elif list(row.keys()) != row_srcs:
+                raise Exception(
+                    f"Inconsistent columns, want {row_srcs}, got {list(row.keys())}"
+                )
+
+            match (row.get(lkey.src), row.get(rkey.src)):
+                case (None, None):
+                    pass
+                case (lrow, None):
+                    lrow = as_item(lrow)
+                    lline = lindex.read(lrow.index).line
+                    k = lindex.key(lline)
+                    ritems = rindex.get(k)
+                    if not ritems:
+                        continue
+                    for ritem in ritems:
+                        r = row.copy()
+                        r.set(JoinItem(src=rkey.src, index=ritem))
+                        debug(
+                            "Join: from lrow %s lline %s k %s ritem %s",
+                            lrow,
+                            lline,
+                            k,
+                            ritem,
+                        )
+                        yield r
+                case (None, rrow):
+                    rrow = as_item(rrow)
+                    rline = rindex.read(rrow.index).line
+                    k = rindex.key(rline)
+                    litems = lindex.get(k)
+                    if not litems:
+                        continue
+                    for litem in litems:
+                        r = row.copy()
+                        r.set(JoinItem(src=lkey.src, index=litem))
+                        debug(
+                            "Join: from rrow %s rline %s k %s litem %s",
+                            rrow,
+                            rline,
+                            k,
+                            litem,
+                        )
+                        yield r
+                case (lrow, rrow):
+                    lrow, rrow = as_item(lrow), as_item(rrow)
+                    lline, rline = (
+                        lindex.read(lrow.index).line,
+                        rindex.read(rrow.index).line,
+                    )
+                    lk, rk = lindex.key(lline), rindex.key(rline)
+                    debug(
+                        "Join: by eq lrow %s rrow %s lline %s rline %s lk %s rk %s",
+                        lrow,
+                        rrow,
+                        lline,
+                        rline,
+                        lk,
+                        rk,
+                    )
+                    if lk == rk:
+                        yield row
+
+
+class Joiner:
+    """Data source joiner."""
+
+    def __init__(self, rel_joiner: RelationJoiner):
+        """Return a new `Joiner`."""
+        self.__rel_joiner = rel_joiner
+
+    def join(self, join_key: JoinKey, dbg: bool = False) -> Iterator[JoinItemList]:
+        """
+        Join the sources.
+
+        :join_key: join relations
+        :dbg: enable debug
+        """
+        if len(join_key) == 0:
+            raise ValidationException("Join key is empty")
+
+        result: Iterator[JoinItemList] | None = None
+        for i, key in enumerate(join_key):
+            result = self.__rel_joiner.join(key, result)
+            if dbg:
+                n = i + 1
+                r = list(result)
+                debug("Joined: [%d] result len = %d", n, len(r))
+                for x in r:
+                    debug("Joined: [%d] %s %s", n, key, x)
+                result = iter(r)
+        yield from cast(Iterator[JoinItemList], result)
 
 
 @with_debug
@@ -284,7 +598,9 @@ def select_columns(target: Target, column_list: list[list[str]]) -> list[str]:
     def select(rng: Range) -> list[str]:
         l, r = rng.ends()
         if not (in_src_range(l.src) and in_src_range(r.src - 1)):
-            raise Exception("Out of source range")
+            raise Exception(
+                f"Out of source range: {rng} not in [0, {len(column_list)}]"
+            )
 
         srcs = column_list[l.src : r.src]
         match len(srcs):
@@ -304,61 +620,32 @@ def select_columns(target: Target, column_list: list[list[str]]) -> list[str]:
     return sum([select(x) for x in target], [])
 
 
-class Joiner:
-    """Join data sources."""
+class Selector:
+    """Select columns and join them."""
 
-    def __init__(self, src1: TextIO, src2: TextIO):
+    def __init__(self, target: Target, srcs: Sequence[TextIO], delimiter: str):
         """
-        Return new `Joiner`.
+        Return a new `Selector`.
 
-        :src2: seekable
+        :target: columns to select
+        :srcs: data sources
+        :delimiter: column delimiter
         """
-        self.src1 = src1
-        self.src2 = src2
+        self.__target = target
+        self.__delimiter = delimiter
+        self.__srcs = srcs
 
-    def join(self, key: JoinKey, delimiter: str, target: Target) -> Iterator[str]:
-        """Join 2 sources with the specified key and yield the columns that selected by target."""
-        lkey, rkey = key.left.add(-1, -1), key.right.add(-1, -1)
-        debug("lkey %s rkey %s", lkey, rkey)
+    def __read(self, src: int, offset: int) -> str:
+        data = self.__srcs[src]
+        data.seek(offset)
+        return data.readline().rstrip()
 
-        def is_valid_key() -> bool:
-            return lkey.src in [0, 1] and rkey.src in [0, 1] and lkey.src != rkey.src
-
-        def sorted_key_cols() -> Tuple[int, int]:
-            if lkey.src == 0:  # left is src1
-                return lkey.col, rkey.col
-            # right is src1
-            return rkey.col, lkey.col
-
-        def new_key(x: str, col: int) -> str:
-            try:
-                return x.split(delimiter)[col]
-            except Exception as e:
-                raise Exception(f"New key from {x}, col {col}") from e
-
-        try:
-            if not is_valid_key:
-                raise Exception("Invalid JoinKey")
-            s1col, s2col = sorted_key_cols()
-            debug("src1 col %d src2 col %d", s1col, s2col)
-            index = Index.new(self.src2, lambda x: new_key(x, s2col))
-            for line in self.src1:
-                xs = line.rstrip().split(delimiter)
-                if not 0 <= s1col < len(xs):
-                    raise Exception(f"Out of range {s2col} in {line.rstrip()}")
-
-                k = xs[s1col]
-                debug("index key %s => %s", k, xs)
-                idx_lines = index.get(k)
-                if idx_lines is None:
-                    continue
-                for line in idx_lines:
-                    idx_cols = line.split(delimiter)
-                    debug("got by index: %s", idx_cols)
-                    yield delimiter.join(select_columns(target, [xs, idx_cols]))
-
-        except Exception as e:
-            raise ValidationException("Join failed") from e
+    def select(self, items: JoinItemList) -> str:
+        """Select columns and join them."""
+        lines = (self.__read(item.src, item.index.offset) for item in items.items())
+        return self.__delimiter.join(
+            select_columns(self.__target, [x.split(self.__delimiter) for x in lines])
+        )
 
 
 @dataclass
@@ -372,7 +659,7 @@ class Arguments:
     :target: target expression
     """
 
-    sources: list[TextIO]
+    sources: Sequence[TextIO]
     delimiter: str
     joinkey: str
     target: str
@@ -385,8 +672,8 @@ class Arguments:
             self.joinkey,
             self.target,
         )
-        if len(self.sources) != 2:
-            raise ValidationException("Require just 2 sources")
+        if len(self.sources) < 2:
+            raise ValidationException("Require multiple sources")
         return Runner(self)
 
 
@@ -398,8 +685,10 @@ class Runner:
 
     def run(self) -> Iterator[str]:
         """Run join."""
-        key = Parser.parse_joinkey(self.args.joinkey)
+        joinkey = Parser.parse_joinkey(self.args.joinkey)
         target = Parser.parse_target(self.args.target)
-        yield from Joiner(self.args.sources[0], self.args.sources[1]).join(
-            key, self.args.delimiter, target
-        )
+        cache = IndexCache(self.args.sources)
+        joiner = Joiner(RelationJoiner(cache, self.args.delimiter))
+        selector = Selector(target, self.args.sources, self.args.delimiter)
+        for items in joiner.join(joinkey):
+            yield selector.select(items)
