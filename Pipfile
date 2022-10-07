@@ -23,3 +23,8 @@ types-croniter = "*"
 
 [requires]
 python_version = "3.10"
+
+[scripts]
+check = "tox -e black,isort,flake8,mypy,pydocstyle -p 4"
+test = "tox -e py310"
+req = "requirements > requirements.txt"
