@@ -1,4 +1,5 @@
 import io
+from textwrap import dedent
 from typing import Any, List, Optional
 
 import pytest
@@ -74,6 +75,136 @@ def test_csv_writer(
     for r in rows:
         w.write(r)
     got = buf.getvalue().splitlines()
+    assert got == want, got
+
+
+def test_csv_writer_consistent_row():
+    buf = io.StringIO()
+    w = common.CSVWriter(buf, ["a", "b"], ",", True)
+    rows = [
+        {"a": 1, "b": 2},
+        {"a": 2, "b": 3},
+    ]
+    want = [
+        "a,b",
+        "1,2",
+        "2,3",
+    ]
+    for r in rows:
+        w.write(r)
+    got = buf.getvalue().splitlines()
+    assert got == want, got
+
+
+@pytest.mark.parametrize(
+    "headers,rows",
+    [
+        (
+            ["a", "b"],
+            [
+                {"a": 1, "b": 2},
+                {"a": 1},
+            ],
+        ),
+        (
+            ["a", "b"],
+            [
+                {"a": 1, "b": 2},
+                {"a": 1, "b": 3, "c": 5},
+            ],
+        ),
+    ],
+)
+def test_csv_writer_inconsistent_row(headers: List[str], rows: List[Any]):
+    buf = io.StringIO()
+    w = common.CSVWriter(buf, headers, ",", True)
+    with pytest.raises(
+        common.ValidationException, match=r"^Inconsistent headers found"
+    ):
+        for r in rows:
+            w.write(r)
+
+
+@pytest.mark.parametrize(
+    "headers,rows",
+    [
+        (
+            ["a", "b"],
+            [
+                {"a": 1, "b": 2},
+                {"a": 2},
+            ],
+        ),
+        (
+            ["a", "b"],
+            [
+                {"a": 1, "b": 2},
+                {"a": 2, "b": 3, "c": 4},
+            ],
+        ),
+        (
+            ["a", "b"],
+            [
+                [1, 2],
+                [3],
+            ],
+        ),
+        (
+            ["a", "b"],
+            [
+                [1, 2],
+                [3, 4, 5],
+            ],
+        ),
+    ],
+)
+def test_json_writer_inconsistent_row(headers: List[str], rows: List[Any]):
+    buf = io.StringIO()
+    w = common.JSONWriter(buf, headers, True)
+    with pytest.raises(
+        common.ValidationException, match=r"^Inconsistent headers found"
+    ):
+        for r in rows:
+            w.write(r)
+
+
+@pytest.mark.parametrize(
+    "headers,rows,want",
+    [
+        (
+            ["a", "b"],
+            [
+                {"a": 1, "b": 2},
+                {"a": 3, "b": 4},
+            ],
+            dedent(
+                """\
+            {"a":1,"b":2}
+            {"a":3,"b":4}
+            """
+            ),
+        ),
+        (
+            ["a", "b"],
+            [
+                [1, 2],
+                [3, 4],
+            ],
+            dedent(
+                """\
+            {"a":1,"b":2}
+            {"a":3,"b":4}
+            """
+            ),
+        ),
+    ],
+)
+def test_json_writer_consistent_row(headers: List[str], rows: List[Any], want: str):
+    buf = io.StringIO()
+    w = common.JSONWriter(buf, headers, True)
+    for r in rows:
+        w.write(r)
+    got = buf.getvalue()
     assert got == want, got
 
 

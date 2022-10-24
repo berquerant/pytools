@@ -101,17 +101,31 @@ class StructWriter(Protocol):
 class JSONWriter(StructWriter):
     """JSON log writer."""
 
-    def __init__(self, dest: TextIOBase, headers: Optional[List[str]] = None):
+    def __init__(
+        self,
+        dest: TextIOBase,
+        headers: Optional[List[str]] = None,
+        strict_headers=False,
+    ):
         """Return a new JSONWriter."""
         super().__init__()
         self.dest = dest
         self.headers = headers
+        self.strict_headers = strict_headers
 
     def __new_row(self, row: StructWriterRow) -> Any:
         if not self.headers:
             return row
         if isinstance(row, dict):
+            if self.strict_headers and sorted(self.headers) != sorted(list(row.keys())):
+                raise ValidationException(
+                    f"Inconsistent headers found, want {self.headers} but given {row}"
+                )
             return {k: v for k, v in row.items() if k in self.headers}
+        if self.strict_headers and len(self.headers) != len(row):
+            raise ValidationException(
+                f"Inconsistent headers found, want {self.headers} but given {row}"
+            )
         return dict(zip(self.headers, row))
 
     def write(self, row: StructWriterRow):  # noqa: D102
@@ -122,18 +136,24 @@ class CSVWriter(StructWriter):
     """CSV log writer."""
 
     def __init__(
-        self, dest: TextIOBase, headers: Optional[List[str]] = None, delimiter=","
+        self,
+        dest: TextIOBase,
+        headers: Optional[List[str]] = None,
+        delimiter=",",
+        strict_headers=False,
     ):
         """Return a new CSVWriter."""
         super().__init__()
         self.writer = csv.writer(dest, delimiter=delimiter)
         self.headers = headers
+        self.strict_headers = strict_headers
         self.is_head = True
 
     def __write_csv(self, row: List[Any]):
         self.writer.writerow(row)
 
-    def __write_headers(self):
+    def write_headers(self):
+        """Dump headers."""
         if self.headers:
             self.__write_csv(self.headers)
 
@@ -142,13 +162,24 @@ class CSVWriter(StructWriter):
             return row
         if not self.headers:
             return [row[k] for k in sorted(row)]
+        if self.strict_headers and sorted(self.headers) != sorted(list(row.keys())):
+            raise ValidationException(
+                f"Inconsistent headers found, want {self.headers} but given {row}"
+            )
         return [row[k] for k in self.headers if k in row]
 
     def write(self, row: StructWriterRow):  # noqa: D102
         if self.is_head:
-            self.__write_headers()
+            self.write_headers()
             self.is_head = False
         self.__write_csv(self.__new_row(row))
+
+
+class NoHeaderCSVWriter(CSVWriter):
+    """CSVWriter without headers."""
+
+    def write_headers(self):
+        """Override to ignore headers."""
 
 
 @contextmanager

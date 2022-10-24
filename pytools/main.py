@@ -1,15 +1,84 @@
 """Excecutable entry point."""
 
+import csv
 import json
 import sys
 from argparse import ArgumentParser, Namespace
-from typing import Callable, Iterator, Optional, Sequence, TextIO
+from typing import Any, Callable, Iterator, Optional, Sequence, TextIO, cast
 
 import pkommand
 
 from pytools import common, jsondiff
 
 from .log import set_debug
+
+
+def csv2json(no_headers: bool = False):
+    """
+    Read CSV and write JSON.
+
+    e.g.
+    $ (echo 'a,b';echo '1,2';echo '10,20') | pytools csv2json
+    {"a":"1","b":"2"}
+    {"a":"10","b":"20"}
+    $ (echo 'a,b';echo '1,2';echo '10,20') | pytools csv2json -n
+    ["a","b"]
+    ["1","2"]
+    ["10","20"]
+    """
+    is_head = True
+    r = csv.reader(sys.stdin)
+    w: Optional[common.JSONWriter] = None
+
+    for x in r:
+        if is_head:
+            is_head = False
+            args: dict[str, Any] = {
+                "dest": sys.stdout,
+                "strict_headers": True,
+            }
+            if not no_headers:
+                args["headers"] = x
+            w = common.JSONWriter(**args)
+            if not no_headers:
+                continue
+        w = cast(common.JSONWriter, w)
+        w.write(x)
+
+
+def json2csv(no_headers: bool = False):
+    """
+    Read JSON and write CSV.
+
+    e.g.
+    $ (echo '{"a":1,"b":2}';echo '{"a":10,"b":20}') | pytools json2csv
+    a,b
+    1,2
+    10,20
+    $ (echo '{"a":1,"b":2}';echo '{"a":10,"b":20}') | pytools json2csv -n
+    1,2
+    10,20
+    """
+    is_head = True
+    w: Optional[common.CSVWriter] = None
+
+    for line in sys.stdin:
+        j = json.loads(line)
+        if is_head:
+            is_head = False
+            headers = sorted(list(j.keys()))
+            args: dict[str, Any] = {
+                "dest": sys.stdout,
+                "headers": headers,
+                "strict_headers": True,
+            }
+            w = (
+                common.NoHeaderCSVWriter(**args)
+                if no_headers
+                else common.CSVWriter(**args)
+            )
+        w = cast(common.CSVWriter, w)
+        w.write(j)
 
 
 def join(
@@ -562,6 +631,8 @@ def main():
         htmldump,
         kvpair,
         join,
+        json2csv,
+        csv2json,
     ]
     wrapper = pkommand.Wrapper(parser)
     for function in functions:
