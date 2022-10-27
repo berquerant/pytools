@@ -13,7 +13,7 @@ from pytools import common, jsondiff
 from .log import set_debug
 
 
-def csv2json(no_headers: bool = False):
+def csv2json(strict: bool = False, no_headers: bool = False):
     """
     Read CSV and write JSON.
 
@@ -35,7 +35,7 @@ def csv2json(no_headers: bool = False):
             is_head = False
             args: dict[str, Any] = {
                 "dest": sys.stdout,
-                "strict_headers": True,
+                "strict_headers": strict,
             }
             if not no_headers:
                 args["headers"] = x
@@ -46,7 +46,7 @@ def csv2json(no_headers: bool = False):
         w.write(x)
 
 
-def json2csv(no_headers: bool = False):
+def json2csv(strict: bool = False, no_headers: bool = False):
     """
     Read JSON and write CSV.
 
@@ -70,7 +70,7 @@ def json2csv(no_headers: bool = False):
             args: dict[str, Any] = {
                 "dest": sys.stdout,
                 "headers": headers,
-                "strict_headers": True,
+                "strict_headers": strict,
             }
             w = (
                 common.NoHeaderCSVWriter(**args)
