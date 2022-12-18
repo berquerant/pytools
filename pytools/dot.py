@@ -17,7 +17,7 @@ from .common import ValidationException, find_extension, textiter
 def json_dumps(obj: Any) -> str:
     """Dump obj for node label."""
     return (
-        json.dumps(obj, sort_keys=True, indent=" ")
+        json.dumps(obj, sort_keys=True, indent=" ", ensure_ascii=False)
         .replace("\n", "\\l")
         .replace("{", "\\{")
         .replace("}", "\\}")
@@ -106,7 +106,7 @@ class JSONDrawer(Drawer):  # noqa: D209
         for e in edges:
             if e.end not in nids:  # in case the node is not declared
                 nids.add(e.end)
-                g.node(e.end, label=json_dumps({"id": e.end}))
+                g.node(e.end, label=e.end)
             g.edge(e.start, e.end, e.label)
 
 
