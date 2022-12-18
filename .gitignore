@@ -3,6 +3,7 @@ dist/
 build/
 __pycache__/
 *.egg-info
+.ropeproject/
 
 # tox and pytest
 .tox/
