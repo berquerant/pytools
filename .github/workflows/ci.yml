@@ -28,8 +28,7 @@ jobs:
           python -m pip install pipenv
       - name: Sync
         run: pipenv sync --dev
+      - name: Lint
+        run: pipenv run check
       - name: Test
-        run: |
-          pipenv shell
-          tox -e black,isort,flake8,mypy,pydocstyle -p 4
-          tox -e py310
+        run: pipenv run test
