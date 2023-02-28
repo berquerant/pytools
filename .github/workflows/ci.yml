@@ -28,7 +28,8 @@ jobs:
           python -m pip install pipenv
       - name: Sync
         run: pipenv sync --dev
-      - name: Build
-        run: make dist
       - name: Test
-        run: make dev
+        run: |
+          pipenv shell
+          make dist
+          make dev
