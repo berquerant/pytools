@@ -31,5 +31,5 @@ jobs:
       - name: Test
         run: |
           pipenv shell
-          make dist
-          make dev
+          tox -e black,isort,flake8,mypy,pydocstyle -p 4
+          tox -e py310
