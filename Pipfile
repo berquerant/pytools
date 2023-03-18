@@ -8,10 +8,10 @@ croniter = "*"
 lxml = "*"
 graphviz = "*"
 pkommand = {ref = "5111b3e", git = "https://github.com/berquerant/pkommand.git"}
+pyparsing = "*"
 
 [dev-packages]
 pytest = "*"
-flake8 = "*"
 black = "*"
 tox = "*"
 mypy = "*"
@@ -20,6 +20,7 @@ pydocstyle = "*"
 pytest-freezegun = "*"
 pytest-cov = "*"
 types-croniter = "*"
+pyproject-flake8 = "*"
 
 [requires]
 python_version = "3.10"
