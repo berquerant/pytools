@@ -209,11 +209,11 @@
         },
         "click": {
             "hashes": [
-                "sha256:4be4b1af8d665c6d942909916d31a213a106800c47d0eeba73d34da3cbc11367",
-                "sha256:e576aa487d679441d7d30abb87e1b43d24fc53bffb8758443b1a9e1cee504548"
+                "sha256:48ee849951919527a045bfe3bf7baa8a959c423134e1a5b98c05c20ba75a1cbd",
+                "sha256:fa244bb30b3b5ee2cae3da8f55c9e5e0c0e86093306301fb418eb9dc40fbded5"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==8.1.5"
+            "version": "==8.1.6"
         },
         "colorama": {
             "hashes": [
@@ -532,11 +532,11 @@
         },
         "types-croniter": {
             "hashes": [
-                "sha256:4b8f5e258a236213ebcd547514828d90fde56e16066b09f071e8886941d6ceb3",
-                "sha256:b0ace20837c6f33da46c7028d260fb7296b7074369452372463ec5d9cc99d3dd"
+                "sha256:5821688c93b874500b6863b8a164a8dbc49efdced985d00cbdddc029b81067b8",
+                "sha256:b8996c11d5e942be59d669388e2515e50ca4935b61e4337bac9e81bfdde9cf72"
             ],
             "index": "pypi",
-            "version": "==1.4.0.0"
+            "version": "==1.4.0.1"
         },
         "typing-extensions": {
             "hashes": [
@@ -548,11 +548,11 @@
         },
         "virtualenv": {
             "hashes": [
-                "sha256:18d1b37fc75cc2670625702d76849a91ebd383768b4e91382a8d51be3246049e",
-                "sha256:e2a7cef9da880d693b933db7654367754f14e20650dc60e8ee7385571f8593a3"
+                "sha256:43a3052be36080548bdee0b42919c88072037d50d56c28bd3f853cbe92b953ff",
+                "sha256:fd8a78f46f6b99a67b7ec5cf73f92357891a7b3a40fd97637c27f854aae3b9e0"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==20.24.0"
+            "version": "==20.24.2"
         }
     }
 }
