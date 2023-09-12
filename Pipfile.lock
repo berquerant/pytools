@@ -514,11 +514,11 @@
         },
         "tox": {
             "hashes": [
-                "sha256:e041b2165375be690aca0ec4d96360c6906451380520e4665bf274f66112be35",
-                "sha256:e4a1b1438955a6da548d69a52350054350cf6a126658c20943261c48ed6d4c92"
+                "sha256:5039f68276461fae6a9452a3b2c7295798f00a0e92edcd9a3b78ba1a73577951",
+                "sha256:599af5e5bb0cad0148ac1558a0b66f8fff219ef88363483b8d92a81e4246f28f"
             ],
             "index": "pypi",
-            "version": "==4.10.0"
+            "version": "==4.11.3"
         },
         "types-croniter": {
             "hashes": [
