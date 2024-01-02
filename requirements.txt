@@ -1,5 +1,5 @@
 -i https://pypi.org/simple
-croniter==1.4.1
+croniter==2.0.1
 graphviz==0.20.1
 lxml==4.9.4
 git+https://github.com/berquerant/pkommand.git@5111b3e524b20937ea48f6055e09fd2a60830699#egg=pkommand
