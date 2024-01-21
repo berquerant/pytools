@@ -20,7 +20,7 @@ jobs:
           alert-lookup: true
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       - name: Merge patch update
-        if: ${{ steps.metadata.outputs.update-type == 'version-update:semver-patch' }}
+        if: ${{ steps.metadata.outputs.update-type == 'version-update:semver-minor' }}
         run: gh pr merge --auto --merge ${{ github.event.pull_request.html_url }}
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
