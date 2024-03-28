@@ -1,6 +1,5 @@
 """Setgrep command."""
 
-
 from dataclasses import dataclass
 from io import TextIOBase
 from typing import Iterator, Optional, Union

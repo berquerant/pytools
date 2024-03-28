@@ -1,6 +1,5 @@
 """Mapdiff command."""
 
-
 from dataclasses import dataclass
 from io import TextIOBase
 from typing import Dict, Iterator, List, Union

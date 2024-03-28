@@ -1,6 +1,5 @@
 """ReverseX command."""
 
-
 from dataclasses import dataclass
 
 

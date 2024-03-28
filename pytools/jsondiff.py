@@ -1,6 +1,5 @@
 """JSONDiff command."""
 
-
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Protocol, Tuple, Union, cast
 

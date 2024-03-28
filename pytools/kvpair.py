@@ -1,6 +1,5 @@
 """KVPair command."""
 
-
 from dataclasses import dataclass
 from typing import Iterator
 

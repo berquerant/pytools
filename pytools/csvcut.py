@@ -1,6 +1,5 @@
 """CSVCut Command."""
 
-
 import csv
 from dataclasses import dataclass
 from io import TextIOBase
