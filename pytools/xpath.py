@@ -1,6 +1,5 @@
 """XPath command."""
 
-
 from dataclasses import dataclass
 from typing import Iterator, Optional
 

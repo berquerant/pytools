@@ -1,6 +1,5 @@
 """Dot command."""
 
-
 import csv
 import json
 from dataclasses import dataclass

@@ -1,6 +1,5 @@
 """IP2bin command."""
 
-
 from dataclasses import dataclass
 
 

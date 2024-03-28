@@ -1,6 +1,5 @@
 """Expand network command."""
 
-
 from dataclasses import dataclass
 from ipaddress import ip_network
 from typing import Iterator
