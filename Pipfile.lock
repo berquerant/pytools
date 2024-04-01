@@ -847,12 +847,12 @@
         },
         "types-croniter": {
             "hashes": [
-                "sha256:266d9ecabbc06afab7cc0cfa7f2149eb36f613ed66ddd6c9bac4edcf727e9a58",
-                "sha256:a5c92566d750e025ab31279029ab44b479e2e3509cd8db3784574bdab1012571"
+                "sha256:5d9560e0fd3cf0299860e886f3cb19c38ec22135cee7b2e69daa8b2312c4f24c",
+                "sha256:8dc34f7e7bdc6ca9b581a7f7f28ad1dc757cd1ada618d425b00cd66149ec9374"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==2.0.0.20240106"
+            "version": "==2.0.0.20240321"
         },
         "typing-extensions": {
             "hashes": [
