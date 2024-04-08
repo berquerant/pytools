@@ -1,7 +1,7 @@
 -i https://pypi.org/simple
 croniter==2.0.3
 graphviz==0.20.1
-lxml==5.2.0
+lxml==5.2.1
 git+https://github.com/berquerant/pkommand.git@5111b3e524b20937ea48f6055e09fd2a60830699#egg=pkommand
 python-dateutil==2.9.0.post0
 six==1.16.0
