@@ -924,12 +924,12 @@
         },
         "types-croniter": {
             "hashes": [
-                "sha256:266d9ecabbc06afab7cc0cfa7f2149eb36f613ed66ddd6c9bac4edcf727e9a58",
-                "sha256:a5c92566d750e025ab31279029ab44b479e2e3509cd8db3784574bdab1012571"
+                "sha256:30f8e4d7ff39c39a3cabc17bfc5186a49f6d4807d9c7177e5fa9b0c2cfe3b073",
+                "sha256:73c0e068c6ac5abc8ffed2d9828c8a38ebae9a2d32af8fcd6bc5c680c79b64b6"
             ],
             "index": "pypi",
             "markers": "python_version >= '3.8'",
-            "version": "==2.0.0.20240106"
+            "version": "==2.0.0.20240423"
         },
         "typing-extensions": {
             "hashes": [
